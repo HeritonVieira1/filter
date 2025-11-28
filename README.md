@@ -8,7 +8,7 @@
 
 ### **1. Download the binary**
 ```
-curl -L https://your-github/releases/latest/download/filter -o filter
+curl -L https://github.com/HeritonVieira1/filter.git -o filter
 ```
 
 ### **2. Make it executable**
