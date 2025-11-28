@@ -1,0 +1,106 @@
+#!/bin/bash
+
+# ========================================================
+#  Filter — List Cleaning Tool for Security Analysis
+#  Removes lines containing irrelevant file extensions
+#  Useful for Bug Bounty, Pentesting, and Recon
+# ========================================================
+
+# Default list of extensions to exclude
+EXCLUDES='\.(png|jpg|jpeg|gif|svg|webp|ico|bmp|tiff|psd|raw|mp4|mkv|mov|avi|wmv|flv|webm|mp3|wav|ogg|flac|aac|pdf|doc|docx|xls|xlsx|ppt|pptx|zip|rar|7z|tar|gz|bz2|css|map|woff|woff2|ttf|eot|exe|dll|so|bin|dat|bak|old|tmp|log|cache)$'
+
+VERBOSE=false
+KEEP_ONLY=""
+CONFIG_FILE=""
+
+show_help() {
+    echo "Usage: filter [options] [file]"
+    echo
+    echo "Options:"
+    echo "  -v                       Verbose mode (show removed lines)"
+    echo "  --keep ext1,ext2         Keep ONLY these extensions (whitelist)"
+    echo "  --config file.txt        Load custom extensions to exclude"
+    echo "  -h, --help               Show this help message"
+    echo
+    echo "Examples:"
+    echo "  filter urls.txt"
+    echo "  cat urls.txt | filter"
+    echo "  filter --keep php,js urls.txt"
+    echo "  filter --config exts.txt urls.txt"
+    exit 0
+}
+
+# -------------------------
+# Parse arguments
+# -------------------------
+while [[ "$1" != "" ]]; do
+    case "$1" in
+        -v)
+            VERBOSE=true
+            ;;
+        --keep)
+            shift
+            KEEP_ONLY="$1"
+            ;;
+        --config)
+            shift
+            CONFIG_FILE="$1"
+            ;;
+        -h|--help)
+            show_help
+            ;;
+        *)
+            INPUT="$1"
+            ;;
+    esac
+    shift
+done
+
+# Input from stdin if no file specified
+if [ -z "$INPUT" ]; then
+    INPUT="-"
+fi
+
+# -------------------------
+# Handle --keep (whitelist mode)
+# -------------------------
+if [ -n "$KEEP_ONLY" ]; then
+    IFS=',' read -r -a exts <<< "$KEEP_ONLY"
+    regex="\.($(printf "%s|" "${exts[@]}" | sed 's/|$//'))$"
+
+    if $VERBOSE; then
+        grep -Eiv "$regex" "$INPUT" | sed 's/^/[REMOVED] /' >&2
+    fi
+
+    grep -Ei "$regex" "$INPUT"
+    exit 0
+fi
+
+# -------------------------
+# Handle --config file
+# -------------------------
+if [ -n "$CONFIG_FILE" ]; then
+    if [ ! -f "$CONFIG_FILE" ]; then
+        echo "Error: config file not found: $CONFIG_FILE"
+        exit 1
+    fi
+
+    mapfile -t custom_exts < "$CONFIG_FILE"
+    regex="\.($(printf "%s|" "${custom_exts[@]}" | sed 's/|$//'))$"
+
+    if $VERBOSE; then
+        grep -E "$regex" "$INPUT" | sed 's/^/[REMOVED] /' >&2
+    fi
+
+    grep -Ev "$regex" "$INPUT"
+    exit 0
+fi
+
+# -------------------------
+# Default exclude behavior
+# -------------------------
+if $VERBOSE; then
+    grep -E "$EXCLUDES" "$INPUT" | sed 's/^/[REMOVED] /' >&2
+fi
+
+grep -Ev "$EXCLUDES" "$INPUT"
